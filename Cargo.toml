@@ -1,0 +1,17 @@
+[package]
+name = "imapalyze"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+dotenv = "0.15.0"
+flexi_logger = "0.31.7"
+imap = "2.4.1"
+log = "0.4.29"
+native-tls = "0.2.14"
+ratatui = "0.30.0"
+
+
+[profile.release]
+lto = true
+codegen-units = 1
