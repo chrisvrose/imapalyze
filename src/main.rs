@@ -1,11 +1,15 @@
+use std::cmp::min;
+
 use flexi_logger::FileSpec;
 use log::{debug, info};
 
 use crate::{
+    fetcher::{MailStatFromFetcher, SingleMailFromFetcher},
     program_error::ProgramError,
     tls_imap::{ImapConfig, ImapCredentials},
 };
 
+mod fetcher;
 mod program_error;
 mod tls_imap;
 
@@ -39,5 +43,20 @@ fn main() -> Result<(), ProgramError> {
 
     info!("Found {} emails", counts);
 
+    for x in (1..counts).step_by(1000) {
+        let range = (x, min(x + 1000 - 1, counts));
+        let num_string = format!("{}:{}", range.0, range.1);
+        println!("{}", num_string);
+        let last_mail_deets = imap_sess.fetch(num_string.as_str(), "ALL")?;
+
+        assert!(last_mail_deets.len() <= 1000);
+        // let last_mail = last_mail_deets
+        // .get(0)
+        // .ok_or(ProgramError::MailError("Expected atleast one mail"))?;
+        for fetched_mail in last_mail_deets.iter() {
+            let froms = SingleMailFromFetcher::fetch(fetched_mail);
+            println!("DEETS {:?}", froms);
+        }
+    }
     Ok(())
 }

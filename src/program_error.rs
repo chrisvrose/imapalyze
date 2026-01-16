@@ -4,6 +4,7 @@ pub(crate) enum ProgramError {
     DotenvError,
     EnvVarError,
     ImapError(imap::Error),
+    MailError(&'static str),
 }
 
 impl From<native_tls::Error> for ProgramError {
