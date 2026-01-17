@@ -1,15 +1,16 @@
-use std::cmp::min;
+use std::collections::HashMap;
 
 use flexi_logger::FileSpec;
-use log::{debug, info};
+use log::debug;
 
 use crate::{
-    fetcher::{MailStatFromFetcher, SingleMailFromFetcher},
+    fetcher::SingleMailFromAndFlagFetcher,
+    imap_session_fetcher::ImapSessionBatchedFetcher,
     program_error::ProgramError,
     tls_imap::{ImapConfig, ImapCredentials},
 };
-
 mod fetcher;
+mod imap_session_fetcher;
 mod program_error;
 mod tls_imap;
 
@@ -33,30 +34,23 @@ fn main() -> Result<(), ProgramError> {
 
     let ImapCredentials { email, pwd } = ImapCredentials::from_env()?;
 
-    let mut imap_sess = imap_client.login(email, pwd).map_err(|(e, _)| e)?;
+    let imap_sess = imap_client.login(email, pwd).map_err(|(e, _)| e)?;
+    let mut imap_sess_handler = ImapSessionBatchedFetcher::new(imap_sess);
 
-    debug!("Imap session obtained");
+    let all_mails = imap_sess_handler.total_mails_map::<SingleMailFromAndFlagFetcher, _>()?;
 
-    let deets = imap_sess.examine("INBOX")?;
+    let mut sender_count = HashMap::<String, u32>::new();
+    all_mails
+        .iter()
+        .filter(|(is_seen, _)| !is_seen)
+        .for_each(|(_, senders)| {
+            for (_mailbox, host) in senders.iter() {
+                let new_count = sender_count.get(host).map_or(0, |x| x.clone()) + 1;
+                sender_count.insert(host.clone(), new_count);
+            }
+        });
 
-    let counts = deets.exists;
+    println!("all mails {:?}", sender_count);
 
-    info!("Found {} emails", counts);
-
-    for x in (1..counts).step_by(1000) {
-        let range = (x, min(x + 1000 - 1, counts));
-        let num_string = format!("{}:{}", range.0, range.1);
-        println!("{}", num_string);
-        let last_mail_deets = imap_sess.fetch(num_string.as_str(), "ALL")?;
-
-        assert!(last_mail_deets.len() <= 1000);
-        // let last_mail = last_mail_deets
-        // .get(0)
-        // .ok_or(ProgramError::MailError("Expected atleast one mail"))?;
-        for fetched_mail in last_mail_deets.iter() {
-            let froms = SingleMailFromFetcher::fetch(fetched_mail);
-            println!("DEETS {:?}", froms);
-        }
-    }
     Ok(())
 }

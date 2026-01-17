@@ -1,26 +1,28 @@
-use imap::types::{Fetch, ZeroCopy};
+use imap::types::{Fetch, Flag};
 
-pub trait MailStatFromFetcher<T> {
-    fn fetch(mail: &Fetch) -> Vec<T>;
+pub trait SingleMailMapper<T> {
+    fn map(mail: &Fetch) -> T;
 }
 
-pub struct SingleMailFromFetcher;
+pub struct SingleMailFromAndFlagFetcher;
 
-impl MailStatFromFetcher<String> for SingleMailFromFetcher {
-    fn fetch(mail: &Fetch) -> Vec<String> {
-        let a = mail
+impl SingleMailMapper<(bool, Vec<(String, String)>)> for SingleMailFromAndFlagFetcher {
+    fn map(mail: &Fetch) -> (bool, Vec<(String, String)>) {
+        let from_addresses = mail
             .envelope()
             .and_then(|env| env.from.as_ref())
             .map(|items| {
                 items.iter().map(|item| {
-                    let address_str = from_bytes_to_string(item.mailbox)
-                        + "@"
-                        + from_bytes_to_string(item.host).as_str();
-                    address_str
+                    let address_str = from_bytes_to_string(item.mailbox);
+                    let host_str = from_bytes_to_string(item.host);
+
+                    (address_str, host_str)
                 })
             })
-            .expect("Unexpected Missing From address");
-        a.collect()
+            .map(|e| e.collect())
+            .unwrap_or(Vec::default());
+        let is_read = mail.flags().iter().find(|e| **e == Flag::Seen).is_some();
+        (is_read, from_addresses)
     }
 }
 
