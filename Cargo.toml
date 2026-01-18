@@ -10,7 +10,6 @@ imap = "2.4.1"
 log = "0.4.29"
 native-tls = "0.2.14"
 ratatui = "0.30.0"
-rayon = "1.11.0"
 
 
 [profile.release]

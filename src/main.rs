@@ -1,24 +1,20 @@
-use std::{collections::HashMap, time::Duration};
+use std::collections::HashMap;
 
 use flexi_logger::FileSpec;
 use log::debug;
-use ratatui::{
-    DefaultTerminal, Frame,
-    crossterm::event::{self, KeyEvent, KeyEventKind},
-    widgets::Widget,
-};
 
 use crate::{
+    app::App,
     fetcher::SingleMailFromAndFlagFetcher,
     imap_session_fetcher::ImapSessionBatchedFetcher,
     program_error::ProgramError,
     tls_imap::{ImapConfig, ImapCredentials},
 };
+mod app;
 mod fetcher;
 mod imap_session_fetcher;
 mod program_error;
 mod tls_imap;
-mod window;
 
 fn main() -> Result<(), ProgramError> {
     flexi_logger::Logger::try_with_env_or_str("debug")
@@ -32,44 +28,6 @@ fn main() -> Result<(), ProgramError> {
     Ok(())
 }
 
-pub struct App {
-    exit: bool,
-}
-impl App {
-    pub fn new() -> Self {
-        Self { exit: false }
-    }
-    pub fn run(&mut self, term: &mut DefaultTerminal) -> std::io::Result<()> {
-        while !self.exit {
-            term.draw(|frame| self.draw(frame))?;
-            self.handle_events()?;
-        }
-        Ok(())
-    }
-    pub fn draw(&self, frame: &mut Frame) {
-        frame.render_widget(self, frame.area());
-    }
-    pub fn handle_events(&mut self) -> std::io::Result<()> {
-        if let true = event::poll(Duration::from_secs(1))? {
-            match event::read()? {
-                event::Event::Key(key_event) if key_event.kind == KeyEventKind::Press => {
-                    self.handle_key_event(key_event)
-                }
-                _ => {}
-            }
-        }
-        Ok(())
-    }
-    pub fn handle_key_event(&mut self, key_event: KeyEvent) {
-        match key_event.code {
-            event::KeyCode::Esc | event::KeyCode::Char('q') => self.mark_exit(),
-            _ => {}
-        }
-    }
-    pub fn mark_exit(&mut self) {
-        self.exit = true;
-    }
-}
 fn test() -> Result<(), ProgramError> {
     let ImapConfig { domain, port } = ImapConfig::from_env()?;
 
