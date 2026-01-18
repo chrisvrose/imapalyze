@@ -11,7 +11,7 @@ pub struct ImapSessionBatchedFetcher<T: Read + Write> {
     total_count_last: Option<u32>,
 }
 impl<T: Read + Write> ImapSessionBatchedFetcher<T> {
-    pub const BATCH_SIZE: usize = 16000;
+    pub const BATCH_SIZE: usize = 1000;
     pub fn new(imap_sess: Session<T>) -> Self {
         Self {
             imap_sess,

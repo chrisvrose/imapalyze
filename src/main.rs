@@ -4,16 +4,19 @@ use flexi_logger::FileSpec;
 use log::debug;
 
 use crate::{
+    app::App,
     fetcher::SingleMailFromAndFlagFetcher,
     imap_session_fetcher::ImapSessionBatchedFetcher,
+    model::mail::MailData,
     program_error::ProgramError,
     tls_imap::{ImapConfig, ImapCredentials},
 };
+mod app;
 mod fetcher;
 mod imap_session_fetcher;
+mod model;
 mod program_error;
 mod tls_imap;
-
 fn main() -> Result<(), ProgramError> {
     flexi_logger::Logger::try_with_env_or_str("debug")
         .expect("Unexpected config")
@@ -22,7 +25,11 @@ fn main() -> Result<(), ProgramError> {
         .ok();
 
     dotenv::dotenv()?;
+    ratatui::run(|term| App::new().run(term))?;
+    Ok(())
+}
 
+fn test() -> Result<(), ProgramError> {
     let ImapConfig { domain, port } = ImapConfig::from_env()?;
 
     let tls_conn = native_tls::TlsConnector::builder()
@@ -42,15 +49,26 @@ fn main() -> Result<(), ProgramError> {
     let mut sender_count = HashMap::<String, u32>::new();
     all_mails
         .iter()
-        .filter(|(is_seen, _)| !is_seen)
-        .for_each(|(_, senders)| {
-            for (_mailbox, host) in senders.iter() {
+        .filter(|MailData { is_read, .. }| !is_read)
+        .for_each(|MailData { from, .. }| {
+            for (_mailbox, host) in from.iter() {
                 let new_count = sender_count.get(host).map_or(0, |x| x.clone()) + 1;
                 sender_count.insert(host.clone(), new_count);
             }
         });
 
-    println!("all mails {:?}", sender_count);
+    // Build a Vec<(domain, count)> sorted by count descending
+    let mut sorted_senders: Vec<(String, u32)> =
+        sender_count.iter().map(|(k, v)| (k.clone(), *v)).collect();
+    sorted_senders.sort_by(|a, b| b.1.cmp(&a.1));
+
+    println!(
+        "Total unread reference: {}",
+        sorted_senders.iter().fold(0, |x, (_, c)| { x + c })
+    );
+    let slice = sorted_senders.iter().take(10);
+    // Print full (domain, count) pairs in descending order
+    println!("Senders sorted by count: {:?}", slice.collect::<Vec<_>>());
 
     Ok(())
 }

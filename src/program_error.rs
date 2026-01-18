@@ -1,3 +1,5 @@
+use std::io::Error;
+
 #[derive(Debug)]
 pub(crate) enum ProgramError {
     TlsError,
@@ -10,6 +12,12 @@ pub(crate) enum ProgramError {
 impl From<native_tls::Error> for ProgramError {
     fn from(_: native_tls::Error) -> ProgramError {
         ProgramError::TlsError
+    }
+}
+
+impl From<std::io::Error> for ProgramError {
+    fn from(_value: std::io::Error) -> Self {
+        Self::MailError("Bruh")
     }
 }
 
