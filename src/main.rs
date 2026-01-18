@@ -7,15 +7,16 @@ use crate::{
     app::App,
     fetcher::SingleMailFromAndFlagFetcher,
     imap_session_fetcher::ImapSessionBatchedFetcher,
+    model::mail::MailData,
     program_error::ProgramError,
     tls_imap::{ImapConfig, ImapCredentials},
 };
 mod app;
 mod fetcher;
 mod imap_session_fetcher;
+mod model;
 mod program_error;
 mod tls_imap;
-
 fn main() -> Result<(), ProgramError> {
     flexi_logger::Logger::try_with_env_or_str("debug")
         .expect("Unexpected config")
@@ -48,9 +49,9 @@ fn test() -> Result<(), ProgramError> {
     let mut sender_count = HashMap::<String, u32>::new();
     all_mails
         .iter()
-        .filter(|(is_seen, _)| !is_seen)
-        .for_each(|(_, senders)| {
-            for (_mailbox, host) in senders.iter() {
+        .filter(|MailData { is_read, .. }| !is_read)
+        .for_each(|MailData { from, .. }| {
+            for (_mailbox, host) in from.iter() {
                 let new_count = sender_count.get(host).map_or(0, |x| x.clone()) + 1;
                 sender_count.insert(host.clone(), new_count);
             }

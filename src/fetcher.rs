@@ -1,13 +1,15 @@
 use imap::types::{Fetch, Flag};
 
+use crate::model::mail::MailData;
+
 pub trait SingleMailMapper<T> {
     fn map(mail: &Fetch) -> T;
 }
 
 pub struct SingleMailFromAndFlagFetcher;
 
-impl SingleMailMapper<(bool, Vec<(String, String)>)> for SingleMailFromAndFlagFetcher {
-    fn map(mail: &Fetch) -> (bool, Vec<(String, String)>) {
+impl SingleMailMapper<MailData> for SingleMailFromAndFlagFetcher {
+    fn map(mail: &Fetch) -> MailData {
         let from_addresses = mail
             .envelope()
             .and_then(|env| env.from.as_ref())
@@ -22,7 +24,7 @@ impl SingleMailMapper<(bool, Vec<(String, String)>)> for SingleMailFromAndFlagFe
             .map(|e| e.collect())
             .unwrap_or(Vec::default());
         let is_read = mail.flags().iter().find(|e| **e == Flag::Seen).is_some();
-        (is_read, from_addresses)
+        (is_read, from_addresses).into()
     }
 }
 

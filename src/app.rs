@@ -7,13 +7,19 @@ use ratatui::{
     widgets::{Block, Widget},
 };
 
+use crate::model::mail::MailData;
+
 pub struct App {
     pub exit: bool,
+    pub email_store: Option<Vec<MailData>>,
 }
 
 impl App {
     pub fn new() -> Self {
-        Self { exit: false }
+        Self {
+            exit: false,
+            email_store: None,
+        }
     }
     pub fn run(&mut self, term: &mut DefaultTerminal) -> std::io::Result<()> {
         while !self.exit {
