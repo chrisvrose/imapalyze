@@ -1,7 +1,12 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, time::Duration};
 
 use flexi_logger::FileSpec;
 use log::debug;
+use ratatui::{
+    DefaultTerminal, Frame,
+    crossterm::event::{self, KeyEvent, KeyEventKind},
+    widgets::Widget,
+};
 
 use crate::{
     fetcher::SingleMailFromAndFlagFetcher,
@@ -13,6 +18,7 @@ mod fetcher;
 mod imap_session_fetcher;
 mod program_error;
 mod tls_imap;
+mod window;
 
 fn main() -> Result<(), ProgramError> {
     flexi_logger::Logger::try_with_env_or_str("debug")
@@ -22,7 +28,49 @@ fn main() -> Result<(), ProgramError> {
         .ok();
 
     dotenv::dotenv()?;
+    ratatui::run(|term| App::new().run(term))?;
+    Ok(())
+}
 
+pub struct App {
+    exit: bool,
+}
+impl App {
+    pub fn new() -> Self {
+        Self { exit: false }
+    }
+    pub fn run(&mut self, term: &mut DefaultTerminal) -> std::io::Result<()> {
+        while !self.exit {
+            term.draw(|frame| self.draw(frame))?;
+            self.handle_events()?;
+        }
+        Ok(())
+    }
+    pub fn draw(&self, frame: &mut Frame) {
+        frame.render_widget(self, frame.area());
+    }
+    pub fn handle_events(&mut self) -> std::io::Result<()> {
+        if let true = event::poll(Duration::from_secs(1))? {
+            match event::read()? {
+                event::Event::Key(key_event) if key_event.kind == KeyEventKind::Press => {
+                    self.handle_key_event(key_event)
+                }
+                _ => {}
+            }
+        }
+        Ok(())
+    }
+    pub fn handle_key_event(&mut self, key_event: KeyEvent) {
+        match key_event.code {
+            event::KeyCode::Esc | event::KeyCode::Char('q') => self.mark_exit(),
+            _ => {}
+        }
+    }
+    pub fn mark_exit(&mut self) {
+        self.exit = true;
+    }
+}
+fn test() -> Result<(), ProgramError> {
     let ImapConfig { domain, port } = ImapConfig::from_env()?;
 
     let tls_conn = native_tls::TlsConnector::builder()
@@ -50,7 +98,18 @@ fn main() -> Result<(), ProgramError> {
             }
         });
 
-    println!("all mails {:?}", sender_count);
+    // Build a Vec<(domain, count)> sorted by count descending
+    let mut sorted_senders: Vec<(String, u32)> =
+        sender_count.iter().map(|(k, v)| (k.clone(), *v)).collect();
+    sorted_senders.sort_by(|a, b| b.1.cmp(&a.1));
+
+    println!(
+        "Total unread reference: {}",
+        sorted_senders.iter().fold(0, |x, (_, c)| { x + c })
+    );
+    let slice = sorted_senders.iter().take(10);
+    // Print full (domain, count) pairs in descending order
+    println!("Senders sorted by count: {:?}", slice.collect::<Vec<_>>());
 
     Ok(())
 }
